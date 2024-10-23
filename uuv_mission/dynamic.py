@@ -105,8 +105,6 @@ class ClosedLoop:
         actions = np.zeros(T)
         self.plant.reset_state()
         
-########################################################################################
-# This is part that has been added
 
         for t in range(T):
             positions[t] = self.plant.get_position()
