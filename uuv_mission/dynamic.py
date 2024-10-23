@@ -3,6 +3,8 @@ from dataclasses import dataclass
 import numpy as np
 import matplotlib.pyplot as plt
 from .terrain import generate_reference_and_limits
+import pandas as pd
+
 
 class Submarine:
     def __init__(self):
@@ -73,19 +75,28 @@ class Mission:
         (reference, cave_height, cave_depth) = generate_reference_and_limits(duration, scale)
         return cls(reference, cave_height, cave_depth)
 
+# what has been added
+########################################################################################
     @classmethod
     def from_csv(cls, file_name: str):
-        # You are required to implement this method
-        pass
+        # Read the CSV file into a DataFrame
+        df = pd.read_csv(file_name)
+        
+        # Extract the columns as NumPy arrays
+        reference = df['reference'].to_numpy()
+        cave_height = df['cave_height'].to_numpy()
+        cave_depth = df['cave_depth'].to_numpy()
+
+        # Create and return an instance of Mission
+        return cls(reference, cave_height, cave_depth)
 
 
 class ClosedLoop:
-    def __init__(self, plant: Submarine, controller):
+    def __init__(self, plant: Submarine, controller: PDController):
         self.plant = plant
         self.controller = controller
 
-    def simulate(self,  mission: Mission, disturbances: np.ndarray) -> Trajectory:
-
+    def simulate(self, mission: Mission, disturbances: np.ndarray) -> Trajectory:
         T = len(mission.reference)
         if len(disturbances) < T:
             raise ValueError("Disturbances must be at least as long as mission duration")
@@ -93,11 +104,19 @@ class ClosedLoop:
         positions = np.zeros((T, 2))
         actions = np.zeros(T)
         self.plant.reset_state()
+        
+########################################################################################
+# This is part that has been added
 
         for t in range(T):
             positions[t] = self.plant.get_position()
-            observation_t = self.plant.get_depth()
-            # Call your controller here
+            output = self.plant.get_depth()
+            reference = mission.reference[t]
+            
+            # Call the controller to compute the action
+            actions[t] = self.controller.compute_control(reference, output)
+            
+            # Apply the action and disturbances to the plant
             self.plant.transition(actions[t], disturbances[t])
 
         return Trajectory(positions)
@@ -105,3 +124,17 @@ class ClosedLoop:
     def simulate_with_random_disturbances(self, mission: Mission, variance: float = 0.5) -> Trajectory:
         disturbances = np.random.normal(0, variance, len(mission.reference))
         return self.simulate(mission, disturbances)
+
+class PDController:
+    def __init__(self, KP: float = 0.15, KD: float = 0.6, dt:float = 1):
+        self.KP = KP
+        self.KD = KD
+        self.previous_error = 0.0
+        self.dt = 1
+    def compute_control(self, reference: float, current: float) -> float:
+
+        error = reference - current
+        derivative = (error - self.previous_error) / self.dt
+        action = self.KP * error + self.KD * derivative
+        self.previous_error = error
+        return action
