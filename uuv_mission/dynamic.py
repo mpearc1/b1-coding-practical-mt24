@@ -92,7 +92,7 @@ class Mission:
 
 
 class ClosedLoop:
-    def __init__(self, plant: Submarine, controller: PDController):
+    def __init__(self, plant: Submarine, controller: control):
         self.plant = plant
         self.controller = controller
 
@@ -125,7 +125,7 @@ class ClosedLoop:
         disturbances = np.random.normal(0, variance, len(mission.reference))
         return self.simulate(mission, disturbances)
 
-class PDController:
+class control:
     def __init__(self, KP: float = 0.15, KD: float = 0.6, dt:float = 1):
         self.KP = KP
         self.KD = KD
